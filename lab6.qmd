@@ -1,0 +1,49 @@
+---
+title: "Lab 6: Logistic Regression and Support Vector Machines"
+author: "Insert your name here"
+date: "Insert date here"
+format: pdf
+---
+
+# Packages
+
+```{r load-packages}
+# load packages here
+```
+
+# Data  
+
+```{r load-data}
+# load data here
+```
+
+
+# Exercises 
+
+## Data Visualization
+
+### Q1
+
+*Write text here*
+
+### Q2
+
+```{r data-viz}
+# enter code here
+```
+
+## Two-Variable Models
+
+### Q5
+
+```{r tuning-svm}
+list(
+  cost = c(0.1, 1, 10),
+  gamma = c(0.5, 1, 2, 3),
+  kernel = c("linear", "radial")
+    )
+```
+
+## Full Models
+
+
