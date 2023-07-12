@@ -24,7 +24,7 @@ suppressPackageStartupMessages(library(glmnet))
 # Data  
 
 ```{r load-data}
-e <- email
+d <- email
 ```
 
 
@@ -34,15 +34,39 @@ e <- email
 
 ### Q1
 
-*Write text here*
+One variable I think is likely an indicator of spam is the word "winner." This is something that shows up in a lot of spam emails because it is a common way of scamming people. Winner also does not often show up in non-spam regular emails, so the presence of winner would likely indicate that the email is spam. 
+
+Another variable that would help indicate if spam or not is inherit. Inherit is not something that occurs in most emails, but is something that scam email would probably include. The more times inherit is mentioned, I would expect that the email is more likely to be spam.  
 
 ### Q2
 
 ```{r data-viz}
-# enter code here
+ggplot(d, aes(x = inherit, y = winner, colour = spam)) +
+  geom_point() +
+  geom_jitter() +
+  labs(title = "Spam prediction by inheritance mentions and winner presence", x = 'inheritance mentions', y = 'winner presence')
 ```
+The relationships do not appear to match what I expected to see. There are a lot more instances of not spam emails including the word winner than spam emails, which I did not expect. Similarly, there were many inheritance mentions in spam and nonspam emails, with even more in nonspam emails. 
+The classes do not seem linearly separable because of the overlap they share. 
 
 ## Two-Variable Models
+
+### Q3
+```{r split-data}
+# splits data in training and test set by 70/30
+set.seed(145)
+train <- sample(c(TRUE, FALSE), nrow(d),
+     replace = TRUE, prob=c(.7,.3))
+test <- (!train)
+```
+
+### Q4
+```{r log-reg}
+
+
+
+
+```
 
 ### Q5
 
