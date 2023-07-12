@@ -8,13 +8,23 @@ format: pdf
 # Packages
 
 ```{r load-packages}
-# load packages here
+# load packages
+suppressPackageStartupMessages(library(tidyverse))
+library(broom) # for tidy function
+library(patchwork) # for plot placement
+library(ggplot2)
+suppressPackageStartupMessages(library(openintro))
+suppressPackageStartupMessages(library(boot))
+suppressPackageStartupMessages(library(ROCR))
+suppressPackageStartupMessages(library(pROC))
+suppressPackageStartupMessages(library(e1071))
+suppressPackageStartupMessages(library(glmnet))
 ```
 
 # Data  
 
 ```{r load-data}
-# load data here
+e <- email
 ```
 
 
