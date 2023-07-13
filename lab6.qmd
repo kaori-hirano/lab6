@@ -71,6 +71,8 @@ wrote down in Q1)
 glm_fits <- glm(spam ~ inherit + winner, d, family = binomial)
 summary(glm_fits)
 ```
+Based on the coefficients, I do see the relationship I expected to see in q1. Having winner in an email makes it more likely to be associated withbeing spam, same with having inherit/inheritance to a lesser degree, as seen by the coefficients of 1.51 and .20.
+
 ```{r roc}
 rocplot <- function(pred, truth, ...) {
   predob <- prediction(pred, truth)
@@ -120,9 +122,8 @@ auc_flexl <- performance(pred_flexl, "auc")
 auc_flexl@y.values
 auc_optl@y.values # this one is better!
 ```
-Based on the coefficients, I do see the relationship I expected to see in q1. Having winner in an email makes it more likely to be associated withbeing spam, same with having inherit/inheritance to a lesser degree, as seen by the coefficients of 1.51 and .20. 
 
-The AUC is .5179
+The AUC for the test data is .5179
 
 ### Q5
 Fit a support vector machine with the two variables you chose above.
@@ -157,18 +158,28 @@ tune_outl <- tune(svm, spam ~ inherit + winner, data = d, kernel = c("linear"),
 summary(tune_outl)
 
 # uses optimal to make decision boundary
-svmbest <- svm(spam ~ inherit + winner, data = d, kernel = "linear", 
+svmbest <- svm(spam ~ inherit + winner, data = d, kernel = "radial", 
     cost = .1, gamma = .5, scale = TRUE)
 ```
 
-The optimal tuning parameters are for radial gamma .5 and cost .1 with .0935 performance, 
-and with linear gamma .5 and cost .1 with performance of .0936, making the linear
+The optimal tuning parameters are for radial gamma .5 and cost .1 with .0935958 performance, 
+and with linear gamma .5 and cost .1 with performance of .0935951, making the radial
 gamma .5 and cost .1 the optimal parameter combination. 
 
 ```{r svc-plot}
 # NEED TO GET THE PLOT TO WORK
 # making data so only the variables in svc are in the data frame
-datasvc <- d[c('spam', 'inherit', 'winner')]
+datasvc_factor <- d[c('spam', 'inherit', 'winner')]
+datasvc <- data.frame('spam' = as.numeric(d$spam),
+                      'inherit' = d$inherit, 
+                      'winner' = as.numeric(d$winner))
+
+svmbest <- svm(spam ~ inherit + winner, data = datasvc, kernel = "radial", 
+    cost = .1, gamma = .5, scale = TRUE)
+
+svmbest_factor <- svm(spam ~ inherit + winner, data = datasvc_factor, kernel = "radial", 
+    cost = .1, gamma = .5, scale = TRUE)
+
 # plotting decision boundary with built in plot
 plot(svmbest, datasvc) 
 ```
@@ -202,7 +213,7 @@ auc_opts <- performance(pred_opts, "auc")
 auc_opts@y.values
 
 ```
-The AUC is .4756 for the model with the optimal parameters above. 
+The AUC is .528 for the model with the optimal parameters above. 
 
 ## Full Models
 
@@ -391,10 +402,11 @@ roc_data_tests <- bind_rows(
   data.frame(tpr = tpr_opts,
              fpr = fpr_opts,
              Model = "2 Variables")
-)
+))
 
 
 # plot using ggplot
+
 ggplot(roc_data_tests, aes(x = fpr, y = tpr, color = Model)) +
   geom_line() +
   xlim(c(0, 1)) +
@@ -433,5 +445,5 @@ ggplot(roc_data_testf, aes(x = fpr, y = tpr, color = Model)) +
   theme_classic()
 
 ```
-This visualization makes it clear that there is a much higher AUC in the logistic model than in the svm model. 
+This visualization makes it clear that there is a much higher AUC in the logistic model than in the svm model, as seen by the higher AUC value and how the curve is close to the top left corner. 
 
