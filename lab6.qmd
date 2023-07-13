@@ -61,14 +61,113 @@ test <- (!train)
 ```
 
 ### Q4
+Fit a logistic regression model with the two variables you chose above. Plot the ROC curve and
+report the AUC for the test data (you can use ROCR, pROC, or ggplot2 for the visualization).
+Based on the coefficients, do the relationships match the ones you expected to see (which you
+wrote down in Q1)
 ```{r log-reg}
+# creates glm and prints summary tab
+glm_fits <- glm(spam ~ inherit + winner, d, family = binomial)
+summary(glm_fits)
+```
+```{r roc}
+rocplot <- function(pred, truth, ...) {
+  predob <- prediction(pred, truth)
+  perf <- performance(predob, "tpr", "fpr")
+  plot(perf, ...)
+}
 
+# setting up svm
+svmfit_opt <- svm(spam ~ inherit + winner, data = d[train, ], 
+    kernel = "radial", gamma = 2, cost = 1, 
+    decision.values = T)
+fitted <- attributes(
+    predict(svmfit_opt, d[train, ],
+            decision.values = TRUE)
+  )$decision.values
 
+# svm with higher gamma
+rocplot(-fitted, d[train, "spam"], main = "Training Data")
+svmfit_flex <- svm(spam ~ inherit + winner, data = d[train, ], 
+    kernel = "radial", gamma = 50, cost = 1, 
+    decision.values = T)
+fitted_flex <- attributes(
+    predict(svmfit_flex, d[train, ], decision.values = T)
+  )$decision.values
+rocplot(-fitted_flex, d[train, "spam"], add = T,
+        col = "red")
+
+# test
+fitted_test <- attributes(
+    predict(svmfit_opt, d[-train, ], decision.values = T)
+  )$decision.values
+rocplot(-fitted_test, d[-train, "spam"], main = "Test Data")
+fitted_flex_test <- attributes(
+    predict(svmfit_flex, d[-train, ],
+            decision.values = T)
+  )$decision.values
+rocplot(-fitted_flex_test, d[-train, "spam"], add = T,
+        col = "red")
+
+pred_opt <- prediction(-fitted_test, d[-train, "spam"])
+auc_opt <- performance(pred_opt, "auc")
+
+pred_flex <- prediction(-fitted_flex_test, d[-train, "spam"])
+auc_flex <- performance(pred_flex, "auc")
+
+auc_flex@y.values
+auc_opt@y.values # this one is better!
 
 
 ```
 
+```{r plot-ROC-ggplot}
+tprfpr_opt <- performance(pred_opt, "tpr", "fpr") 
+
+# get tpr and fpr for flex model
+tprfpr_flex <- performance(pred_flex, "tpr", "fpr") 
+
+#below extracts the y values and x values we need for gamma = 2 model
+tpr_opt <- unlist(tprfpr_opt@y.values) 
+fpr_opt <- unlist(tprfpr_opt@x.values)
+# do the same for gamma = 50 model
+tpr_flex <- unlist(tprfpr_flex@y.values) 
+fpr_flex <- unlist(tprfpr_flex@x.values)
+
+# combine into dataframe
+roc_data_test <- bind_rows(
+  data.frame(tpr = tpr_opt,
+             fpr = fpr_opt,
+             Model = "Gamma = 2"),
+  data.frame(tpr = tpr_flex,
+             fpr = fpr_flex,
+             Model = "Gamma = 50")
+)
+
+# plot using ggplot
+ggplot(roc_data_test, aes(x = fpr, y = tpr, color = Model)) +
+  geom_line() +
+  xlim(c(0, 1)) +
+  ylim(c(0, 1)) +
+  labs(x = "False Positive Rate",
+        y = "True Positive Rate",
+        title = "Comparing ROC Curves for Two Different Models") +
+  theme_classic()
+
+
+```
+Based on the coefficients, I do see the relationship I expected to see in q1. Having winner in an email makes it more likely to be associated withbeing spam, same with having inherit/inheritance to a lesser degree, as seen by the coefficients of 1.51 and .20. 
+
+The AUC is .5179
+
 ### Q5
+Fit a support vector machine with the two variables you chose above.
+Use cross-validation to find the optimal model. Set the seed to 246 before doing so and the
+search over the following tuning parameter space:
+What is the optimal combination of parameters
+Plot the decision boundary using the built in plot() function.
+Plot the ROC curve and report the AUC for the test data (you can use ROCR, pROC, or ggplot2
+for the visualization).
 
 ```{r tuning-svm}
 list(
@@ -78,6 +177,163 @@ list(
     )
 ```
 
+```{r svm}
+# dat <- data.frame(c(), y = as.factor(d$spam))
+svcfit <- svm(spam ~ inherit + winner, data = d, kernel = "linear", 
+    cost = 10, scale = FALSE)
+
+set.seed(246)
+tune_out <- tune(svm, spam ~ inherit + winner, data = d, kernel = "linear", 
+    ranges = list(cost = c(0.001, 0.01, 0.1, 1, 5, 10, 100)))
+
+plot(svcfit, dat)
+```
+
+```{r decision-boundary-ggplot2}
+## Get support vectors
+df_sv <- d[svcfit$index,] 
+## Add the support vectors with purple circles in the plot
+p <- ggplot(d, aes(x = inherit, y = winner, color = spam)) +
+  geom_point() + 
+  geom_point(data = df_sv,
+             aes(x = inherit, y = winner),
+             color = "purple",
+             size = 4, alpha = 0.5) +
+  theme_classic()
+
+# Build weight vector from which to calculate slope and intercept
+w <- t(svcfit$coefs) %*% svcfit$SV
+slope_1 <- -w[1]/w[2]
+intercept_1 <- svcfit$rho/w[2]
+# Plot decision boundary based on calculated slope and intercept
+p <- p + geom_abline(slope = slope_1,
+                     intercept = intercept_1)
+
+# Add the margins to plot
+p <- p + 
+  geom_abline(slope = slope_1,
+              intercept = intercept_1-1/w[2],
+              linetype = "dashed") + 
+  geom_abline(slope = slope_1,
+              intercept = intercept_1+1/w[2],
+              linetype = "dashed")
+p
+
+```
+
+
 ## Full Models
 
+### Q6
+Repeat Q4, but this time use all variables in emails.
+Compare performance on the test set with the two-variable model
+
+```{r log-reg-full}
+# creates glm and prints summary tab
+glm_fits <- glm(spam ~ to_multiple + from + cc + sent_email + time + image + attach + dollar + winner + inherit + viagra + password + num_char + line_breaks + format + re_subj + exclaim_subj + urgent_subj + exclaim_mess + number, d, family = binomial)
+summary(glm_fits)
+```
+
+```{r roc}
+rocplot <- function(pred, truth, ...) {
+  predob <- prediction(pred, truth)
+  perf <- performance(predob, "tpr", "fpr")
+  plot(perf, ...)
+}
+
+# setting up svm
+svmfit_opt <- svm(spam ~ to_multiple + from + cc + sent_email + time + image + attach + dollar + winner + inherit + viagra + password + num_char + line_breaks + format + re_subj + exclaim_subj + urgent_subj + exclaim_mess + number, data = d[train, ], 
+    kernel = "radial", gamma = 2, cost = 1, 
+    decision.values = T)
+fitted <- attributes(
+    predict(svmfit_opt, d[train, ],
+            decision.values = TRUE)
+  )$decision.values
+
+# svm with higher gamma
+rocplot(-fitted, d[train, "spam"], main = "Training Data")
+svmfit_flex <- svm(spam ~ to_multiple + from + cc + sent_email + time + image + attach + dollar + winner + inherit + viagra + password + num_char + line_breaks + format + re_subj + exclaim_subj + urgent_subj + exclaim_mess + number, data = d[train, ], 
+    kernel = "radial", gamma = 50, cost = 1, 
+    decision.values = T)
+fitted_flex <- attributes(
+    predict(svmfit_flex, d[train, ], decision.values = T)
+  )$decision.values
+rocplot(-fitted_flex, d[train, "spam"], add = T,
+        col = "red")
+
+# test
+fitted_test <- attributes(
+    predict(svmfit_opt, d[-train, ], decision.values = T)
+  )$decision.values
+rocplot(-fitted_test, d[-train, "spam"], main = "Test Data")
+fitted_flex_test <- attributes(
+    predict(svmfit_flex, d[-train, ],
+            decision.values = T)
+  )$decision.values
+rocplot(-fitted_flex_test, d[-train, "spam"], add = T,
+        col = "red")
+
+pred_opt <- prediction(-fitted_test, d[-train, "spam"])
+auc_opt <- performance(pred_opt, "auc")
+
+pred_flex <- prediction(-fitted_flex_test, d[-train, "spam"])
+auc_flex <- performance(pred_flex, "auc")
+
+auc_flex@y.values
+auc_opt@y.values # this one is better!
+
+
+```
+The AUC is .9617 for the flexible model and .9047 for the less flexible model, so the flexible model is better in this case. 
+
+The coefficients here largely match what I would expect. I thought it was interesting that image and attachments were associated with spam, but it makes sense when thinking about how many common emails actually don't include either of these. However, words like password, inherit, and winner, all make sense as spam and I'm not surprised to see them. Overall, these coeffifients were not that surprising. 
+
+The AUC here is much higher than the two variable model. 
+
+```{r plot-ROC-ggplot}
+tprfpr_opt <- performance(pred_opt, "tpr", "fpr") 
+
+# get tpr and fpr for flex model
+tprfpr_flex <- performance(pred_flex, "tpr", "fpr") 
+
+#below extracts the y values and x values we need for gamma = 2 model
+tpr_opt <- unlist(tprfpr_opt@y.values) 
+fpr_opt <- unlist(tprfpr_opt@x.values)
+# do the same for gamma = 50 model
+tpr_flex <- unlist(tprfpr_flex@y.values) 
+fpr_flex <- unlist(tprfpr_flex@x.values)
+
+# combine into dataframe
+roc_data_test <- bind_rows(
+  data.frame(tpr = tpr_opt,
+             fpr = fpr_opt,
+             Model = "Gamma = 2"),
+  data.frame(tpr = tpr_flex,
+             fpr = fpr_flex,
+             Model = "Gamma = 50")
+)
+
+# plot using ggplot
+ggplot(roc_data_test, aes(x = fpr, y = tpr, color = Model)) +
+  geom_line() +
+  xlim(c(0, 1)) +
+  ylim(c(0, 1)) +
+  labs(x = "False Positive Rate",
+        y = "True Positive Rate",
+        title = "Comparing ROC Curves for Two Different Models") +
+  theme_classic()
+```
+
+### Q7
+Repeat Q5 (you do not have to plot the decision boundary) with all the variables in email
+except for viagra.
+2 This time set the seed to 247 before cross-validation. To save on time,
+do only 5-fold cross-validation (read the helpfile for tune() to figure out which argument you
+need to use to do this).
+Compare performance on the test set with the two-variable model.
+
+
+
+### Q8
+compare the two full models on performance on test set
 
