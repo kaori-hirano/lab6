@@ -134,6 +134,8 @@ Plot the ROC curve and report the AUC for the test data (you can use ROCR, pROC,
 for the visualization).
 
 ```{r tuning-svm}
+# tune didn't like having both radial and linear as arguments
+# so I just did two tests, one for linear and one for radial
 list(
   cost = c(0.1, 1, 10),
   gamma = c(0.5, 1, 2, 3),
@@ -179,25 +181,25 @@ rocplot <- function(pred, truth, ...) {
 }
 
 # uses svmbest from prior question as model
-fitted <- attributes(
+fitteds <- attributes(
     predict(svmbest, d[train, ],
             decision.values = TRUE)
   )$decision.values
 
 # test data is used for predictions
-fitted_test <- attributes(
+fitted_tests <- attributes(
     predict(svmbest, d[-train, ], decision.values = T)
   )$decision.values
 
 # plots ROC
-rocplot(-fitted_test, d[-train, "spam"], main = "Test Data")
+rocplot(-fitted_tests, d[-train, "spam"], main = "Test Data")
 
 # gets predictions so AUC can be calculated
-pred_opt <- prediction(-fitted_test, d[-train, "spam"])
-auc_opt <- performance(pred_opt, "auc")
+pred_opts <- prediction(-fitted_tests, d[-train, "spam"])
+auc_opts <- performance(pred_opts, "auc")
 
 # prints AUC
-auc_opt@y.values
+auc_opts@y.values
 
 ```
 The AUC is .4756 for the model with the optimal parameters above. 
@@ -302,7 +304,7 @@ ggplot(roc_data_testlf, aes(x = fpr, y = tpr, color = Model)) +
         title = "Comparing ROC Curves for Two Different Models") +
   theme_classic()
 ```
-
+This visualization makes it clear that the full variable model is a much better fit for the data than the two variable model, as seen by the significantly higher AUC and the model  being very close to the top left corner. 
 
 ### Q7
 Repeat Q5 (you do not have to plot the decision boundary) with all the variables in email
@@ -367,35 +369,33 @@ auc_optsf@y.values
 ```
 The AUC for the full model with the optimal parameters is .812. 
 
-### Q8
-compare the two full models on performance on test set
-```{r compare-full}
+```{r compare-svm-models}
 # full model svm information
 tprfpr_optsf <- performance(pred_optsf, "tpr", "fpr") 
 
-# full log model information
-tprfpr_flex <- performance(pred_flex, "tpr", "fpr") 
+# 2 var svm
+tprfpr_opts <- performance(pred_opts, "tpr", "fpr") 
 
 #below extracts the y values and x values we need for gamma = 2 model
-tpr_opt <- unlist(tprfpr_opt@y.values) 
-fpr_opt <- unlist(tprfpr_opt@x.values)
+tpr_optsf <- unlist(tprfpr_optsf@y.values) 
+fpr_optsf <- unlist(tprfpr_optsf@x.values)
 # do the same for gamma = 50 model
-tpr_flex <- unlist(tprfpr_flex@y.values) 
-fpr_flex <- unlist(tprfpr_flex@x.values)
+tpr_opts <- unlist(tprfpr_opts@y.values) 
+fpr_opts <- unlist(tprfpr_opts@x.values)
 
 # combine into dataframe
-roc_data_test <- bind_rows(
-  data.frame(tpr = tpr_opt,
-             fpr = fpr_opt,
-             Model = "Gamma = 2"),
-  data.frame(tpr = tpr_flex,
-             fpr = fpr_flex,
-             Model = "Gamma = 50")
+roc_data_tests <- bind_rows(
+  data.frame(tpr = tpr_optsf,
+             fpr = fpr_optsf,
+             Model = "Full Variables (minus viagra)",
+  data.frame(tpr = tpr_opts,
+             fpr = fpr_opts,
+             Model = "2 Variables")
 )
 
 
 # plot using ggplot
-ggplot(roc_data_test, aes(x = fpr, y = tpr, color = Model)) +
+ggplot(roc_data_tests, aes(x = fpr, y = tpr, color = Model)) +
   geom_line() +
   xlim(c(0, 1)) +
   ylim(c(0, 1)) +
@@ -404,9 +404,10 @@ ggplot(roc_data_test, aes(x = fpr, y = tpr, color = Model)) +
         title = "Comparing ROC Curves for Two Different Models") +
   theme_classic()
 ```
+This visualization illustrates that the full variable model is a better predictor of the data than the 2 variables because there is a much higher AUC for the full vs 2 variable model. 
 
 ### Q8 
-```{compares-full}
+```{r compares-full}
 # the data have already been converted into the forms we need
 # just need to bind together and plot
 
@@ -414,10 +415,10 @@ ggplot(roc_data_test, aes(x = fpr, y = tpr, color = Model)) +
 roc_data_testf <- bind_rows(
   data.frame(tpr = tpr_optsf,
              fpr = fpr_optsf,
-             Model = "Full Variables (minus viagra)"),
-  data.frame(tpr = tpr_flex,
-             fpr = fpr_flex,
-             Model = "2 Variable")
+             Model = "Full Variables SVM (minus viagra)"),
+  data.frame(tpr = tpr_flexlf,
+             fpr = fpr_flexlf,
+             Model = "Full Variables Logistic")
 )
 
 
@@ -431,6 +432,6 @@ ggplot(roc_data_testf, aes(x = fpr, y = tpr, color = Model)) +
         title = "Comparing ROC Curves for Two Different Models") +
   theme_classic()
 
-
 ```
+This visualization makes it clear that there is a much higher AUC in the logistic model than in the svm model. 
 
