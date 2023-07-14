@@ -33,19 +33,20 @@ d <- email
 
 ### Q1
 
-One variable I think is likely an indicator of spam is the word "winner." This is something that shows up in a lot of spam emails because it is a common way of scamming people. Winner also does not often show up in non-spam regular emails, so the presence of winner would likely indicate that the email is spam. 
+One variable I think is likely an indicator of spam is the word "inherit" This is something that shows up in a lot of spam emails because it is a common way of scamming people. Inherit also does not often show up in non-spam regular emails, so the presence of inherit/inheritance would likely indicate that the email is spam. 
 
-Another variable that would help indicate if spam or not is inherit. Inherit is not something that occurs in most emails, but is something that scam email would probably include. The more times inherit is mentioned, I would expect that the email is more likely to be spam.  
+Another variable that would likely indicate spam or not is the number of exclaimation points in the subject. When I get advertisment emails, especially about a sale, there are always lots of exclaimation points and emojis, which would lead me to believe that emails with more exclaimation points in the subject are more likely to be spam emails.   
 
 ### Q2
 
 ```{r data-viz}
-ggplot(d, aes(x = inherit, y = winner, colour = spam)) +
+ggplot(d, aes(x = inherit, y = exclaim_subj, colour = spam)) +
   geom_point() +
   geom_jitter() +
-  labs(title = "Spam prediction by inheritance mentions and winner presence", x = 'inheritance mentions', y = 'winner presence')
+  labs(title = "Spam prediction by inheritance and exclaimation marks", 
+       x = 'inheritance mentions', y = 'exclaimation marks in subject')
 ```
-The relationships do not appear to match what I expected to see. There are a lot more instances of not spam emails including the word winner than spam emails, which I did not expect. Similarly, there were many inheritance mentions in spam and nonspam emails, with even more in nonspam emails. 
+The relationships are somewhat what I would expect to see. The emails with more inheritance mentions and not having exclamation points in the subject make sense as not being spam, while the ones with some mentions and more exclamation points being spam do make sense in context. I was surprised by the number of emails that included inheritance related words that were not spam, which was the biggest part of this relationship that surprised me. 
 
 The classes do not seem linearly separable because of the overlap they share. 
 
@@ -67,13 +68,9 @@ test1 <- d[!sample1, ]
 ```
 
 ### Q4
-Fit a logistic regression model with the two variables you chose above. Plot the ROC curve and
-report the AUC for the test data (you can use ROCR, pROC, or ggplot2 for the visualization).
-Based on the coefficients, do the relationships match the ones you expected to see (which you
-wrote down in Q1)
 ```{r log-reg-roc}
 # creates glm and prints summary tab
-glm_fits <- glm(spam ~ inherit + winner, train1, family = binomial)
+glm_fits <- glm(spam ~ inherit + exclaim_subj, train1, family = binomial)
 summary(glm_fits)
 
 # gets predictions
@@ -96,61 +93,41 @@ rocplot(predicted, test1$spam, main = 'Test Data')
 (auc <- auc(test1$spam,predicted))
 
 ```
-Based on the coefficients, I do see the relationship I expected to see in q1. Having winner in an email makes it more likely to be associated withbeing spam, same with having inherit/inheritance to a lesser degree, as seen by the positive coefficient values. 
+Based on the coefficients, I don't see the relationship I expected to see. The inherit one makes sense, with the more times inherit is mentioned, the more likely the email is to be spam, but the same is not true with exclamation points, which has a negative coefficient, so an email with more is actually less likely to be spam. 
 
-The AUC for the test data is .5121
+The AUC for the test data is .49
 
 ### Q5
-Fit a support vector machine with the two variables you chose above.
-Use cross-validation to find the optimal model. Set the seed to 246 before doing so and the
-search over the following tuning parameter space:
-What is the optimal combination of parameters
-Plot the decision boundary using the built in plot() function.
-Plot the ROC curve and report the AUC for the test data (you can use ROCR, pROC, or ggplot2
-for the visualization).
-
 
 ```{r svm}
 # data is already in the proper format with y as factor
 
 # cross validation for tuning parameters
 set.seed(246)
-tune_out_two <- tune(svm, spam ~ inherit + winner, data = d[train,], ranges = 
+tune_out_two <- tune(svm, spam ~ inherit + exclaim_subj, data = d[train,], ranges = 
   list(
   cost = c(0.1, 1, 10),
   gamma = c(0.5, 1, 2, 3),
   kernel = c("linear", "radial")
     ))
 
-# prints summary and optimal parameters
-summary(tune_out_two)
+# prints optimal parameters
+(tune_out_two$best.parameters)
 
 # gets optimal model 
 svmbest <- tune_out_two$best.model
-
-# plots decision boundary lol it's not gonna happen
-# plot(svmbest, d[train, c('spam', 'winner', 'inherit')])
 ```
 
 The optimal tuning parameters are for linear kernel, gamma .5, and cost .1. 
 
 ```{r svc-plot}
-# NEED TO GET THE PLOT TO WORK
-# making data so only the variables in svc are in the data frame
-datasvc_factor <- d[c('spam', 'inherit', 'winner')]
-datasvc <- data.frame('spam' = as.numeric(d$spam),
-                      'inherit' = d$inherit, 
-                      'winner' = as.numeric(d$winner))
-
-# svmbest <- svm(spam ~ inherit + winner, data = datasvc, kernel = "radial", 
- #   cost = .1, gamma = .5, scale = TRUE)
-
-svmbest_factor <- svm(spam ~ inherit + winner, data = datasvc, kernel = "radial", 
+svmbest_factor <- svm(spam ~ inherit + exclaim_subj, data = train1, kernel = "radial", 
     cost = .1, gamma = .5, scale = TRUE)
+# new data frame with only the variables in the model 
+datasvc_factor <- d[train, c('spam', 'inherit', 'exclaim_subj')]
 
 # plotting decision boundary with built in plot
-plot(svmbest_factor, datasvc) 
-
+plot(svmbest_factor, datasvc_factor)
 ```
 
 ```{r roc-two-svm}
@@ -176,7 +153,8 @@ auc_opts <- performance(pred_opts, "auc")
 auc_opts@y.values
 
 ```
-The AUC is .511 for the model with the optimal parameters above. 
+
+The AUC is .49 for the model with the optimal parameters above. 
 
 ## Full Models
 
@@ -186,7 +164,13 @@ Compare performance on the test set with the two-variable model
 
 ```{r log-reg-full}
 # creates glm and prints summary tab
-glm_fit_full <- glm(spam ~ to_multiple + from + cc + sent_email + time + image + attach + dollar + winner + inherit + viagra + password + num_char + line_breaks + format + re_subj + exclaim_subj + urgent_subj + exclaim_mess + number, train1, family = binomial)
+glm_fit_full <- glm(spam ~ to_multiple + from + cc + sent_email + time + 
+                      image + attach + dollar + winner + inherit + viagra +
+                      password + num_char + line_breaks + format + re_subj +
+                      exclaim_subj + urgent_subj + exclaim_mess + number,
+                    train1, family = binomial)
+
+# prints summary to see coefficients
 summary(glm_fit_full)
 
 # gets predictions
@@ -209,39 +193,43 @@ rocplot(predicted_full, test1$spam, main = 'Test Data')
 ```
 The AUC is .88 for the full model.  
 
-The coefficients here largely match what I would expect. I thought it was interesting that attachments were associated with spam, but it makes sense when thinking about how many common emails actually don't include them and how its a common way to get people to click on things However, words like inherit, urgent, and winner all make sense as spam and I'm not surprised to see them. Overall, these coefficients were not that surprising. 
+The coefficients here largely match what I would expect. I thought it was interesting that attachments were associated with spam, but it makes sense when thinking about how many common emails actually don't include them and how its a common way to get people to click on things However, words like urgent and winner all make sense as spam and I'm not surprised to see them. Overall, these coefficients were not that surprising. 
 
-The AUC here is much higher than the two variable model, indicating that this is a better model for predicting the data. We can see this because the 2 variable model has an AUC of .512, while the full model has an AUC of .88, which is closer to 1, indicating better prediction ability. We can also tell based on the curves of the ROC plots, where the full model arches toward the northeast/top left corner far more than the 2 variable model, which remains almost linear in appearance. 
+The AUC here is much higher than the two variable model, indicating that this is a better model for predicting the data. We can see this because the 2 variable model has an AUC of .49, while the full model has an AUC of .88, which is closer to 1, indicating better prediction ability. We can also tell based on the curves of the ROC plots, where the full model arches toward the northeast/top left corner far more than the 2 variable model, which remains almost linear in appearance. 
 
 ### Q7
-Repeat Q5 (you do not have to plot the decision boundary) with all the variables in email
-except for viagra.
-2 This time set the seed to 247 before cross-validation. To save on time,
-do only 5-fold cross-validation (read the helpfile for tune() to figure out which argument you
-need to use to do this).
-Compare performance on the test set with the two-variable model.
 
 ```{r svm-full}
 # data is already in the proper format with y as factor
 
 # cross validation for tuning parameters
 set.seed(247)
-tune_out_full <- tune(svm, spam ~ to_multiple + from + cc + sent_email + time + image + attach + dollar + winner + inherit + password + num_char + line_breaks + format + re_subj + exclaim_subj + urgent_subj + exclaim_mess + number, data = train1, 
-    ranges = list(gamma = c(.5, 1, 2, 3), cost = c(0.1,  1.0, 10.0), kernel = c('radial', 'linear')), tunecontrol = tune.control(cross=5))
-summary(tune_out_full)
+tune_out_full <- tune(svm, spam ~ to_multiple + from + cc + sent_email 
+                      + time + image + attach + dollar + winner + inherit 
+                      + password + num_char + line_breaks + format + 
+                        re_subj + exclaim_subj + urgent_subj + exclaim_mess
+                      + number, data = train1, 
+                      ranges = list(gamma = c(.5, 1, 2, 3), 
+                                    cost = c(0.1,  1.0, 10.0),
+                                    kernel = c('radial', 'linear')),
+                      tunecontrol = tune.control(cross=5))
 
-# optimal parameters printed
-opt_params <- tune_out_full$best.parameters
+# prints optimal parameters
+(tune_out_full$best.parameters)
 
 # optimal model 
 opt_model <- tune_out_full$best.model
 
 # uses optimal parameters to make svm
-#svmfull <- svm(spam ~ to_multiple + from + cc + sent_email + time + image + attach + dollar + winner + inherit + password + num_char + line_breaks + format + re_subj + exclaim_subj + urgent_subj + exclaim_mess + number, data = train1, kernel = "radial", cost = 10, gamma = .5)
+#svmfull <- svm(spam ~ to_multiple + from + cc + sent_email + 
+#time + image + attach + dollar + winner + inherit + password + 
+ # num_char + line_breaks + format + re_subj + exclaim_subj + 
+ # urgent_subj + exclaim_mess + number, data = train1, kernel = 
+ # "radial", cost = 10, gamma = .5)
 
-svmfull <- opt_model # the two are the same! 
+svmfull <- opt_model # the two are the same! renames for consistence
 ```
-The optimal tuning parameters are radial, cost 10 and gamma .5. 
+The optimal tuning parameters are radial, cost 10, and gamma 1. 
 
 ```{r roc-plot-full}
 # plotting full svm with optimal parameters
@@ -273,11 +261,11 @@ auc_optsf <- performance(pred_optsf, "auc")
 auc_optsf@y.values
 
 ```
-The AUC for the full model with the optimal parameters is .926.
+The AUC for the full model with the optimal parameters is .92.
 
-Knowing that the almost full model with optimal parameters is .926 and the 2 variable model had an AUC of .512, we know that the full model is a better method of predicting if an email will be spam or not. This is because the AUC is much closer to one, and we can tell when looking at the plots by the shape of the curve that goes toward the top left in the full model vs remaining almost straight in the 2 variable model. 
+Knowing that the almost full model with optimal parameters is .92 and the 2 variable model had an AUC of .49, we know that the full model is a better method of predicting if an email will be spam or not. This is because the AUC is much closer to one, and we can tell when looking at the plots by the shape of the curve that goes toward the top left in the full model vs remaining almost straight in the 2 variable model. 
 
 ### Q8 
 
-In the full logistic model, the AUC is .88, while for the almost-all-variable svm model the AUC is .926. This indicates that the svm model is better at predicting whether or not an email is spam because the value is closer to one. When comparing the plots from the previous questions, we can also see that the svm model hugs the northeast/top left corner more closely than the logistic model, indicating a better predictive ability. 
+In the full logistic model, the AUC is .88, while for the almost-all-variable svm model the AUC is .92. This indicates that the svm model is better at predicting whether or not an email is spam because the value is closer to one. When comparing the plots from the previous questions, we can also see that the svm model hugs the northeast/top left corner more closely than the logistic model, indicating a better predictive ability. 
 
