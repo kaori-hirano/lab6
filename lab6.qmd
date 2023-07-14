@@ -4,8 +4,6 @@ author: "Kaori Hirano"
 date: "6/12/23"
 format: pdf
 ---
-# NEED TO CHECK PLOT and do a final review to make sure numbers are consistent
-# Packages
 
 ```{r load-packages}
 # load packages
@@ -64,8 +62,8 @@ test <- (!train)
 # doing it as dataframes instead of subsetting the d frame
 set.seed(145)
 sample1 <- sample(c(TRUE, FALSE), nrow(d), replace=TRUE, prob=c(0.7,0.3))
-train1 <- d[sample, ]
-test1 <- d[!sample, ]
+train1 <- d[sample1, ]
+test1 <- d[!sample1, ]
 ```
 
 ### Q4
@@ -81,13 +79,18 @@ summary(glm_fits)
 # gets predictions
 predicted <- predict(glm_fits, test1, type ='response')
 
-# gets object to plot
+# gets object to plot, I decided not to use this because it didn't look as nice
 roc <- roc(test1$spam, predicted)
 
+# roc function
+rocplot <- function(pred, truth, ...) {
+  predob <- prediction(pred, truth)
+  perf <- performance(predob, "tpr", "fpr")
+  plot(perf, ...)
+}
+
 # plots the roc plot
-plot(roc, main = 'Test Data', 
-     xlab = 'False positive rate', 
-     ylab = 'True positive rate')
+rocplot(predicted, test1$spam, main = 'Test Data')
 
 # prints the AUC
 (auc <- auc(test1$spam,predicted))
@@ -95,7 +98,7 @@ plot(roc, main = 'Test Data',
 ```
 Based on the coefficients, I do see the relationship I expected to see in q1. Having winner in an email makes it more likely to be associated withbeing spam, same with having inherit/inheritance to a lesser degree, as seen by the positive coefficient values. 
 
-The AUC for the test data is .5237
+The AUC for the test data is .5121
 
 ### Q5
 Fit a support vector machine with the two variables you chose above.
@@ -125,8 +128,8 @@ summary(tune_out_two)
 # gets optimal model 
 svmbest <- tune_out_two$best.model
 
-# plots decision boundary
-plot(opt, d[train, c('spam', 'winner', 'inherit')])
+# plots decision boundary lol it's not gonna happen
+# plot(svmbest, d[train, c('spam', 'winner', 'inherit')])
 ```
 
 The optimal tuning parameters are for linear kernel, gamma .5, and cost .1. 
@@ -139,24 +142,18 @@ datasvc <- data.frame('spam' = as.numeric(d$spam),
                       'inherit' = d$inherit, 
                       'winner' = as.numeric(d$winner))
 
-svmbest <- svm(spam ~ inherit + winner, data = datasvc, kernel = "radial", 
-    cost = .1, gamma = .5, scale = TRUE)
+# svmbest <- svm(spam ~ inherit + winner, data = datasvc, kernel = "radial", 
+ #   cost = .1, gamma = .5, scale = TRUE)
 
-svmbest_factor <- svm(spam ~ inherit + winner, data = datasvc_factor, kernel = "radial", 
+svmbest_factor <- svm(spam ~ inherit + winner, data = datasvc, kernel = "radial", 
     cost = .1, gamma = .5, scale = TRUE)
 
 # plotting decision boundary with built in plot
-plot(svmbest, datasvc) 
+plot(svmbest_factor, datasvc) 
 
 ```
 
 ```{r roc-two-svm}
-rocplot <- function(pred, truth, ...) {
-  predob <- prediction(pred, truth)
-  perf <- performance(predob, "tpr", "fpr")
-  plot(perf, ...)
-}
-
 # uses svmbest from prior question as model
 fitteds <- attributes(
     predict(svmbest, train1,
@@ -179,7 +176,7 @@ auc_opts <- performance(pred_opts, "auc")
 auc_opts@y.values
 
 ```
-The AUC is .52 for the model with the optimal parameters above. 
+The AUC is .511 for the model with the optimal parameters above. 
 
 ## Full Models
 
@@ -188,7 +185,6 @@ Repeat Q4, but this time use all variables in emails.
 Compare performance on the test set with the two-variable model
 
 ```{r log-reg-full}
-#| warnings = false
 # creates glm and prints summary tab
 glm_fit_full <- glm(spam ~ to_multiple + from + cc + sent_email + time + image + attach + dollar + winner + inherit + viagra + password + num_char + line_breaks + format + re_subj + exclaim_subj + urgent_subj + exclaim_mess + number, train1, family = binomial)
 summary(glm_fit_full)
@@ -197,21 +193,25 @@ summary(glm_fit_full)
 predicted_full <- predict(glm_fit_full, test1, type ='response')
 
 # gets object to plot
-roc_full <- roc(test1$spam, predicted_full)
+# roc_full <- roc(test1$spam, predicted_full)
 
 # plots the roc plot
-plot(roc_full, main = 'Test Data', 
-     xlab = 'False positive rate', 
-     ylab = 'True positive rate')
+# plot(roc_full, main = 'Test Data', 
+#     xlab = 'False positive rate', 
+#     ylab = 'True positive rate')
 
 # prints the AUC
 (auc_full <- auc(test1$spam,predicted_full))
+
+# plots roc
+rocplot(predicted_full, test1$spam, main = 'Test Data')
+
 ```
 The AUC is .88 for the full model.  
 
 The coefficients here largely match what I would expect. I thought it was interesting that attachments were associated with spam, but it makes sense when thinking about how many common emails actually don't include them and how its a common way to get people to click on things However, words like inherit, urgent, and winner all make sense as spam and I'm not surprised to see them. Overall, these coefficients were not that surprising. 
 
-The AUC here is much higher than the two variable model, indicating that this is a better model for predicting the data. We can see this because the 2 variable model has an AUC of .5237, while the full model has an AUC of .88, which is closer to 1, indicating better prediction ability. We can also tell based on the curves of the ROC plots, where the full model arches toward the northeast/top left corner far more than the 2 variable model, which remains almost linear in appearance. 
+The AUC here is much higher than the two variable model, indicating that this is a better model for predicting the data. We can see this because the 2 variable model has an AUC of .512, while the full model has an AUC of .88, which is closer to 1, indicating better prediction ability. We can also tell based on the curves of the ROC plots, where the full model arches toward the northeast/top left corner far more than the 2 variable model, which remains almost linear in appearance. 
 
 ### Q7
 Repeat Q5 (you do not have to plot the decision boundary) with all the variables in email
@@ -275,31 +275,9 @@ auc_optsf@y.values
 ```
 The AUC for the full model with the optimal parameters is .926.
 
-Knowing that the almost full model with optimal parameters is .926 and the 2 variable model had an AUC of .52, we know that the full model is a better method of predicting if an email will be spam or not. This is because the AUC is much closer to one, and we can tell when looking at the plots by the shape of the curve that goes toward the top left in the full model vs remaining almost straight in the 2 variable model. 
+Knowing that the almost full model with optimal parameters is .926 and the 2 variable model had an AUC of .512, we know that the full model is a better method of predicting if an email will be spam or not. This is because the AUC is much closer to one, and we can tell when looking at the plots by the shape of the curve that goes toward the top left in the full model vs remaining almost straight in the 2 variable model. 
 
 ### Q8 
-```{r compares-full}
-# combine into dataframe
-roc_data_testf <- bind_rows(
-  data.frame(tpr = tpr_optsf,
-             fpr = fpr_optsf,
-             Model = "Full Variables Logisitic"),
-  data.frame(tpr = tpr_flexlf,
-             fpr = fpr_flexlf,
-             Model = "Full Variables SVM")
-)
 
-
-# plot using ggplot
-ggplot(roc_data_testf, aes(x = fpr, y = tpr, color = Model)) +
-  geom_line() +
-  xlim(c(0, 1)) +
-  ylim(c(0, 1)) +
-  labs(x = "False Positive Rate",
-        y = "True Positive Rate",
-        title = "Comparing ROC Curves for Two Different Models") +
-  theme_classic()
-
-```
 In the full logistic model, the AUC is .88, while for the almost-all-variable svm model the AUC is .926. This indicates that the svm model is better at predicting whether or not an email is spam because the value is closer to one. When comparing the plots from the previous questions, we can also see that the svm model hugs the northeast/top left corner more closely than the logistic model, indicating a better predictive ability. 
 
